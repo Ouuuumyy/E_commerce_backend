@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserEntity } from './entities/user.entity';
+import { UserSignUpDto } from './dto/user-signup.dto';
+import {hash} from 'bcrypt'
 
 @Injectable()
 export class UsersService {
@@ -13,9 +15,14 @@ export class UsersService {
     private usersRepository: Repository<UserEntity>,
   ) {}
 
-  async signup(body:any){
-    const user = this.usersRepository.create(body);
-    return await this.usersRepository.save(user)
+  async signup(userSignUpDto:UserSignUpDto):Promise<UserEntity>{
+    const userExist = await this.findUserByEmail(userSignUpDto.email);
+    if(userExist) throw new BadRequestException('email already used');
+    userSignUpDto.password = await hash(userSignUpDto.password, 10);
+    let user = this.usersRepository.create(userSignUpDto);
+    user = await this.usersRepository.save(user);
+    delete(user.password);
+    return user
   }
   create(createUserDto: CreateUserDto) {
     return 'This action adds a new user';
@@ -35,5 +42,9 @@ export class UsersService {
 
   remove(id: number) {
     return `This action removes a #${id} user`;
+  }
+
+  async findUserByEmail(email:string){
+    return await this.usersRepository.findOneBy({email});
   }
 }
